@@ -562,6 +562,30 @@ bool is_poweroff_charge = false;
 #ifdef CONFIG_MACH_XIAOMI_TULIP
 int fts_touch = 1;
 #endif
+#if defined(CONFIG_MACH_XIAOMI_TULIP) || defined(CONFIG_MACH_XIAOMI_WHYRED)
+/*
+ * A kernel built for both tulip and whyred learns the board from the
+ * bootloader. Without androidboot.hwdevice it assumes tulip; a kernel
+ * built for only one board always assumes that board.
+ */
+int is_tulip = IS_ENABLED(CONFIG_MACH_XIAOMI_TULIP);
+int is_whyred = !IS_ENABLED(CONFIG_MACH_XIAOMI_TULIP);
+
+static int __init device_setup(char *s)
+{
+	if (!strcmp(s, "tulip") || !strcmp(s, "twolip")) {
+		is_tulip = 1;
+		is_whyred = 0;
+	} else if (!strcmp(s, "whyred")) {
+		is_tulip = 0;
+		is_whyred = 1;
+	}
+
+	pr_info("Device Setup: tulip=%d, whyred=%d\n", is_tulip, is_whyred);
+	return 1;
+}
+__setup("androidboot.hwdevice=", device_setup);
+#endif
 asmlinkage __visible void __init start_kernel(void)
 {
 	char *command_line;
