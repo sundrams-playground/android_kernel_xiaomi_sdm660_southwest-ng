@@ -279,7 +279,11 @@ int msm_dss_enable_vreg(struct dss_vreg *in_vreg, int num_vreg, int enable)
 			if(enable_gesture_mode || synaptics_gesture_enable_flag) {
 #elif defined CONFIG_MACH_XIAOMI_TULIP
 			//if(enable_gesture_mode || focal_gesture_mode) {
-			if(enable_gesture_mode) {
+#ifdef CONFIG_MACH_XIAOMI_WHYRED
+			if (enable_gesture_mode || synaptics_gesture_func_on) {
+#else
+			if (enable_gesture_mode) {
+#endif
 #elif defined CONFIG_MACH_XIAOMI_WAYNE
 			if(enable_gesture_mode) {
 #elif defined CONFIG_MACH_XIAOMI_WHYRED
@@ -338,7 +342,11 @@ int msm_dss_enable_vreg(struct dss_vreg *in_vreg, int num_vreg, int enable)
 			if (enable_gesture_mode || synaptics_gesture_enable_flag) {
 #elif defined CONFIG_MACH_XIAOMI_TULIP
 			//if (enable_gesture_mode || focal_gesture_mode) {
+#ifdef CONFIG_MACH_XIAOMI_WHYRED
+			if (enable_gesture_mode || synaptics_gesture_func_on) {
+#else
 			if (enable_gesture_mode) {
+#endif
 #elif defined CONFIG_MACH_XIAOMI_WAYNE
 			if(enable_gesture_mode) {
 #elif defined CONFIG_MACH_XIAOMI_WHYRED
