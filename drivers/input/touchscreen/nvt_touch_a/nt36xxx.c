@@ -742,6 +742,10 @@ static int nvt_parse_dt(struct device *dev)
 	struct device_node *np = dev->of_node;
 	ts->irq_gpio = of_get_named_gpio_flags(np, "novatek,irq-gpio", 0, &ts->irq_flags);
 	NVT_LOG("novatek,irq-gpio=%d\n", ts->irq_gpio);
+#if NVT_TOUCH_SUPPORT_HW_RST
+	ts->reset_gpio = of_get_named_gpio_flags(np, "novatek,reset-gpio", 0, &ts->reset_flags);
+	NVT_LOG("novatek,reset-gpio=%d\n", ts->reset_gpio);
+#endif
 	return 0;
 }
 #else
@@ -763,6 +767,17 @@ static int nvt_gpio_config(struct nvt_ts_data *ts)
 {
 	int32_t ret = 0;
 
+#if NVT_TOUCH_SUPPORT_HW_RST
+	/* request RST-pin (Output/High) to release chip from reset */
+	if (gpio_is_valid(ts->reset_gpio)) {
+		ret = gpio_request_one(ts->reset_gpio, GPIOF_OUT_INIT_HIGH, "NVT-tp-rst");
+		if (ret) {
+			NVT_ERR("Failed to request NVT-tp-rst GPIO\n");
+			goto err_request_reset_gpio;
+		}
+	}
+#endif
+
 	/* request INT-pin (Input) */
 	if (gpio_is_valid(ts->irq_gpio)) {
 		ret = gpio_request_one(ts->irq_gpio, GPIOF_IN, "NVT-int");
@@ -775,6 +790,10 @@ static int nvt_gpio_config(struct nvt_ts_data *ts)
 
 	return ret;
 err_request_irq_gpio:
+#if NVT_TOUCH_SUPPORT_HW_RST
+	gpio_free(ts->reset_gpio);
+err_request_reset_gpio:
+#endif
 	return ret;
 }
 
