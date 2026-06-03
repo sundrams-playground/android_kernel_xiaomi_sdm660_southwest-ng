@@ -1199,26 +1199,26 @@ static int32_t nvt_ts_probe(struct i2c_client *client, const struct i2c_device_i
 
 	msleep(10);
 	
-	ts->vcc_i2c = regulator_get(&client->dev, "vcc_i2c-supply");
+	ts->vcc_i2c = regulator_get(&client->dev, "vcc_i2c");
 	if (IS_ERR(ts->vcc_i2c))
 	{
 		ret = PTR_ERR(ts->vcc_i2c);
-		NVT_ERR("Regulator get failed vcc_i2c");
+		NVT_ERR("Regulator get failed vcc_i2c\n");
+	} else {
+		if (regulator_count_voltages(ts->vcc_i2c) > 0)
+		{
+			ret = regulator_set_voltage(ts->vcc_i2c, 1800000, 1800000);
+			if (ret)
+			{
+				NVT_ERR("Regulator set_vtg failed vcc_i2c \n");
+			}
+		}
+		ret = regulator_enable(ts->vcc_i2c);
+		if (ret)
+		{
+			NVT_ERR("Regulator vcc_i2c enable failed\n");
+		}
 	}
-
-    if (regulator_count_voltages(ts->vcc_i2c) > 0)
-    {
-        ret = regulator_set_voltage(ts->vcc_i2c, 1800000, 1800000);
-        if (ret)
-        {
-            NVT_ERR("Regulator set_vtg failed vcc_i2c ");
-        }
-    }
-    ret = regulator_enable(ts->vcc_i2c);
-    if (ret)
-    {
-        NVT_ERR("Regulator vcc_i2c enable failed");
-    }
 
 
 	ret = nvt_ts_check_chip_ver_trim();
@@ -1404,8 +1404,14 @@ err_create_nvt_wq_failed:
 err_chipvertrim_failed:
 err_check_functionality_failed:
 	gpio_free(ts->irq_gpio);
-
+#if NVT_TOUCH_SUPPORT_HW_RST
+	gpio_free(ts->reset_gpio);
+#endif
 err_gpio_config_failed:
+	if (ts->vcc_i2c && !IS_ERR(ts->vcc_i2c)) {
+		regulator_disable(ts->vcc_i2c);
+		regulator_put(ts->vcc_i2c);
+	}
 	i2c_set_clientdata(client, NULL);
 	kfree(ts);
 	return ret;
