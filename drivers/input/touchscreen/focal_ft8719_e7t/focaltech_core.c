@@ -1296,6 +1296,8 @@ static void fts_ts_late_resume(struct early_suspend *handler)
 *  Output:
 *  Return:
 *****************************************************************************/
+extern int fts_touch;
+
 static int fts_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
     int ret = 0;
@@ -1303,6 +1305,12 @@ static int fts_ts_probe(struct i2c_client *client, const struct i2c_device_id *i
     struct fts_ts_data *ts_data;
 
     FTS_FUNC_ENTER();
+#ifdef CONFIG_MACH_XIAOMI_TULIP
+    if (fts_touch != 1) {
+        FTS_ERROR("focaltech touch not present probe abort");
+        return -ENODEV;
+    }
+#endif
     if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
         FTS_ERROR("I2C not supported");
         return -ENODEV;
