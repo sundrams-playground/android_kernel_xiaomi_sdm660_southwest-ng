@@ -70,3 +70,12 @@
 };
 
 #include "xiaomi/tulip.dtsi"
+
+/* USB-C analog audio switch is unused on tulip; en2n would claim the hall gpio75 */
+&wcd_usbc_analog_en1_gpio {
+	status = "disabled";
+};
+
+&wcd_usbc_analog_en2n_gpio {
+	status = "disabled";
+};
