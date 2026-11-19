@@ -1148,6 +1148,47 @@ Description:
 return:
 	Executive outcomes. 0---succeed. negative---failed
 *******************************************************/
+#ifdef CONFIG_MACH_XIAOMI_TULIP
+extern int fts_touch;
+
+/*
+ * Aftermarket panels may not answer the chip id check until the touch
+ * controller is powered and reset. Only used when the normal probe fails,
+ * so stock panels keep the original behaviour. The vcc_i2c vote is kept on
+ * purpose: dropping it could switch off a rail the panel also depends on.
+ */
+static int32_t nvt_ts_aftermarket_recover(struct i2c_client *client)
+{
+	struct device_node *np = client->dev.of_node;
+	struct regulator *vcc;
+	int rst;
+
+	NVT_LOG("chip not identified, trying aftermarket panel recovery\n");
+
+	vcc = regulator_get(&client->dev, "vcc_i2c");
+	if (!IS_ERR(vcc)) {
+		if (regulator_count_voltages(vcc) > 0 &&
+		    regulator_set_voltage(vcc, 1800000, 1800000))
+			NVT_ERR("vcc_i2c set_vtg failed\n");
+		if (regulator_enable(vcc))
+			NVT_ERR("vcc_i2c enable failed\n");
+	}
+
+	rst = of_get_named_gpio(np, "novatek,reset-gpio", 0);
+	if (gpio_is_valid(rst) &&
+	    !gpio_request_one(rst, GPIOF_OUT_INIT_LOW, "NVT-tp-rst")) {
+		msleep(20);
+		gpio_set_value(rst, 1);
+		msleep(40);
+		gpio_free(rst);
+	} else {
+		NVT_ERR("no usable reset gpio for recovery\n");
+	}
+
+	return nvt_ts_check_chip_ver_trim();
+}
+#endif
+
 static int32_t nvt_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
 	int32_t ret = 0;
@@ -1203,6 +1244,11 @@ static int32_t nvt_ts_probe(struct i2c_client *client, const struct i2c_device_i
 
 
 	ret = nvt_ts_check_chip_ver_trim();
+#ifdef CONFIG_MACH_XIAOMI_TULIP
+	/* fts_touch == 1: FT8719 panel, which shares the reset gpio */
+	if (ret && fts_touch != 1)
+		ret = nvt_ts_aftermarket_recover(client);
+#endif
 	if (ret) {
 		NVT_ERR("chip is not identified\n");
 		ret = -EINVAL;
