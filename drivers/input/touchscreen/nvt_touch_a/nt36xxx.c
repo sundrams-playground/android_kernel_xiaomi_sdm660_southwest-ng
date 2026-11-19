@@ -35,6 +35,10 @@
 #endif
 
 #include "nt36xxx.h"
+
+#ifdef CONFIG_TOUCHSCREEN_NVT_E7S
+extern int is_whyred;
+#endif
 #if NVT_TOUCH_ESD_PROTECT
 #include <linux/jiffies.h>
 #endif /* #if NVT_TOUCH_ESD_PROTECT */
@@ -1196,6 +1200,11 @@ static int32_t nvt_ts_probe(struct i2c_client *client, const struct i2c_device_i
 	int32_t retry = 0;
 #endif
 	NVT_LOG("start\n");
+#ifdef CONFIG_TOUCHSCREEN_NVT_E7S
+	/* Both Novatek drivers match novatek,NVT-ts; leave whyred to nvt_touch_e7s. */
+	if (is_whyred)
+		return -ENODEV;
+#endif
 	ts = kzalloc(sizeof(struct nvt_ts_data), GFP_KERNEL);
 
 	if (ts == NULL) {

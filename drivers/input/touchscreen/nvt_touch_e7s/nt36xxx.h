@@ -19,6 +19,28 @@
 #ifndef 	_LINUX_NVT_TOUCH_H
 #define		_LINUX_NVT_TOUCH_H
 
+#ifdef CONFIG_TOUCHSCREEN_NVT_A
+/*
+ * nvt_touch_a (tulip) is built into the same kernel. Rename the global
+ * symbols both drivers define so they link side by side.
+ */
+#define CTP_I2C_READ nvt_e7s_CTP_I2C_READ
+#define CTP_I2C_WRITE nvt_e7s_CTP_I2C_WRITE
+#define delay_gesture nvt_e7s_delay_gesture
+#define gesture_key_array nvt_e7s_gesture_key_array
+#define nvt_bootloader_reset nvt_e7s_nvt_bootloader_reset
+#define nvt_check_fw_reset_state nvt_e7s_nvt_check_fw_reset_state
+#define nvt_check_fw_status nvt_e7s_nvt_check_fw_status
+#define nvt_clear_fw_status nvt_e7s_nvt_clear_fw_status
+#define nvt_gesture_switch nvt_e7s_nvt_gesture_switch
+#define nvt_get_fw_info nvt_e7s_nvt_get_fw_info
+#define nvt_read_pid nvt_e7s_nvt_read_pid
+#define nvt_sw_reset_idle nvt_e7s_nvt_sw_reset_idle
+#define nvt_ts_wakeup_gesture_report nvt_e7s_nvt_ts_wakeup_gesture_report
+#define suspend_state nvt_e7s_suspend_state
+#define ts nvt_e7s_ts
+#endif
+
 #include <linux/i2c.h>
 #include <linux/input.h>
 #include <linux/regulator/consumer.h>

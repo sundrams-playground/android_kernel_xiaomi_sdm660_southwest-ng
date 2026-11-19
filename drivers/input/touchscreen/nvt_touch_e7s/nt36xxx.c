@@ -36,6 +36,8 @@
 #endif
 
 #include "nt36xxx.h"
+
+extern int is_whyred;
 #if NVT_TOUCH_ESD_PROTECT
 #include <linux/jiffies.h>
 #endif /* #if NVT_TOUCH_ESD_PROTECT */
@@ -240,7 +242,12 @@ const uint16_t gesture_key_array[] = {
 	KEY_WAKEUP,
 };
 
+#ifdef CONFIG_TOUCHSCREEN_NVT_A
+/* Shared with nvt_touch_a and the display driver; defined there. */
+extern bool enable_gesture_mode;
+#else
 bool enable_gesture_mode = false;
+#endif
 bool delay_gesture = false;
 bool suspend_state = false;
 #define WAKEUP_OFF 4
@@ -1266,6 +1273,11 @@ static int32_t nvt_ts_probe(struct i2c_client *client, const struct i2c_device_i
 #endif
 
 	NVT_LOG("start\n");
+#ifdef CONFIG_TOUCHSCREEN_NVT_A
+	/* Both Novatek drivers match novatek,NVT-ts; leave tulip to nvt_touch_a. */
+	if (!is_whyred)
+		return -ENODEV;
+#endif
 
 	ts = kmalloc(sizeof(struct nvt_ts_data), GFP_KERNEL);
 	if (ts == NULL) {
@@ -1770,7 +1782,12 @@ static struct i2c_driver nvt_i2c_driver = {
 
 	.id_table	= nvt_ts_id,
 	.driver = {
+		#ifdef CONFIG_TOUCHSCREEN_NVT_A
+		/* nvt_touch_a registers NVT_I2C_NAME */
+		.name	= "NVT-ts-e7s",
+#else
 		.name	= NVT_I2C_NAME,
+#endif
 		.owner	= THIS_MODULE,
 #if 0
 #ifdef CONFIG_PM
