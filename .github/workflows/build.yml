@@ -1,0 +1,116 @@
+name: Build kernel
+
+# One AnyKernel3 zip for tulip and whyred (BakaSU + SUSFS).
+#
+# Telegram upload (optional): add repository secrets
+#   TELEGRAM_BOT_TOKEN  bot token from @BotFather
+#   TELEGRAM_CHAT_ID    chat/channel id the bot can post to (e.g. -100xxxxxxxxxx)
+#   TELEGRAM_TOPIC_ID   optional, message_thread_id for a forum topic
+
+on:
+  push:
+    branches: [ci]
+    paths-ignore: ['**.md']
+  workflow_dispatch:
+    inputs:
+      bakasu_ref:
+        description: 'BakaSU ref to build with (empty = submodule commit, "main" = latest)'
+        required: false
+        default: ''
+      telegram:
+        description: 'Send the zip to Telegram'
+        type: boolean
+        default: true
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # TARGET_KERNEL_CLANG_VERSION from device/xiaomi/bouquet/BoardConfig.mk,
+  # at the prebuilts/clang/host/linux-x86 revision the ROM tree uses
+  CLANG_VERSION: r596125
+  CLANG_URL: https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/29182889399818f97baa65ea238c80e8117981eb/clang-r596125.tar.gz
+  ANYKERNEL_REPO: https://github.com/osm0sis/AnyKernel3
+  ANYKERNEL_BRANCH: master
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - name: Checkout kernel
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          submodules: false
+
+      - name: Checkout BakaSU
+        run: |
+          git submodule update --init --depth=1 KernelSU
+          # BakaSU's version code is its commit count: needs full history and tags
+          git -C KernelSU fetch --unshallow --tags origin
+          ref='${{ github.event.inputs.bakasu_ref }}'
+          if [ -n "$ref" ]; then
+            git -C KernelSU fetch origin "$ref"
+            git -C KernelSU checkout -q FETCH_HEAD
+          fi
+          echo "BAKASU_REV=$(git -C KernelSU rev-parse --short=8 HEAD)" >> "$GITHUB_ENV"
+          git -C KernelSU log -1 --format='BakaSU %h %s (%cd)'
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          df -h /
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq bc bison flex cpio lz4 libssl-dev libelf-dev zip python3
+
+      - name: Cache clang
+        id: clang-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/clang
+          key: clang-${{ env.CLANG_VERSION }}-29182889
+
+      - name: Download clang ${{ env.CLANG_VERSION }}
+        if: steps.clang-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/clang
+          curl -fsSL --retry 5 "$CLANG_URL" | tar -xz -C ~/clang
+          ~/clang/bin/clang --version
+
+      - name: Build
+        run: |
+          echo "BUILD_DATE=$(date -u +%Y%m%d-%H%M)" >> "$GITHUB_ENV"
+          CLANG_DIR=~/clang OUT="$PWD/out" DIST="$PWD/out/dist" \
+            KBUILD_BUILD_USER=github KBUILD_BUILD_HOST=actions \
+            .github/scripts/build.sh
+
+      - name: Package AnyKernel3
+        run: |
+          git clone -q --depth=1 -b "$ANYKERNEL_BRANCH" "$ANYKERNEL_REPO" ak3
+          rm -rf ak3/.git ak3/.github ak3/README.md ak3/modules ak3/patch ak3/ramdisk
+          cp .github/anykernel/anykernel.sh ak3/anykernel.sh
+          cp out/dist/Image.gz-dtb out/dist/dtb ak3/
+          ZIP="SouthWest-NG-BakaSU-SUSFS-tulip-whyred-${BUILD_DATE}.zip"
+          (cd ak3 && zip -r9 "../$ZIP" . -x '*.md' -x '.gitignore')
+          echo "ZIP=$ZIP" >> "$GITHUB_ENV"
+          ls -l "$ZIP"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ZIP }}
+          path: ak3/
+          if-no-files-found: error
+
+      - name: Send to Telegram
+        if: github.event_name == 'push' || github.event.inputs.telegram == 'true'
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TELEGRAM_TOPIC_ID: ${{ secrets.TELEGRAM_TOPIC_ID }}
+        run: .github/scripts/telegram.sh "$ZIP"
