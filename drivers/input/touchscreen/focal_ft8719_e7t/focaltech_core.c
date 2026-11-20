@@ -33,6 +33,9 @@
 * Included header files
 *****************************************************************************/
 #include "focaltech_core.h"
+#ifdef CONFIG_TOUCHSCREEN_COMMON
+#include <linux/input/tp_common.h>
+#endif
 #if defined(CONFIG_FB)
 #include <linux/notifier.h>
 #include <linux/fb.h>
@@ -95,6 +98,44 @@ int fts_gesture_switch(struct input_dev *dev, unsigned int type, unsigned int co
 	}
 	return 0;
 }
+
+#ifdef CONFIG_TOUCHSCREEN_COMMON
+#ifdef CONFIG_TOUCHSCREEN_NVT_A
+/*
+ * Defined by nvt_touch_a. The display driver keeps the panel rails up in
+ * suspend while it is set, which this in-cell panel needs to see a tap.
+ */
+extern bool enable_gesture_mode;
+#endif
+
+static ssize_t double_tap_show(struct kobject *kobj,
+			       struct kobj_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d\n", focal_gesture_mode);
+}
+
+static ssize_t double_tap_store(struct kobject *kobj,
+				struct kobj_attribute *attr, const char *buf,
+				size_t count)
+{
+	int rc, val;
+
+	rc = kstrtoint(buf, 10, &val);
+	if (rc)
+		return -EINVAL;
+
+	focal_gesture_mode = !!val;
+#ifdef CONFIG_TOUCHSCREEN_NVT_A
+	enable_gesture_mode = focal_gesture_mode;
+#endif
+	return count;
+}
+
+static struct tp_common_ops double_tap_ops = {
+	.show = double_tap_show,
+	.store = double_tap_store
+};
+#endif
 #endif
 
 /*****************************************************************************
@@ -1429,6 +1470,12 @@ static int fts_ts_probe(struct i2c_client *client, const struct i2c_device_id *i
         FTS_ERROR("init gesture fail");
     }
 	fts_data->input_dev->event =fts_gesture_switch;
+#ifdef CONFIG_TOUCHSCREEN_COMMON
+	ret = tp_common_set_double_tap_ops(&double_tap_ops);
+	if (ret < 0)
+		FTS_ERROR("%s: Failed to create double_tap node err=%d\n",
+			  __func__, ret);
+#endif
 #endif
 
 #if FTS_TEST_EN
