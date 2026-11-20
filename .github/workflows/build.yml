@@ -5,6 +5,7 @@ name: Build kernel
 # Telegram upload (optional): add repository secrets
 #   TELEGRAM_BOT_TOKEN  bot token from @BotFather
 #   TELEGRAM_CHAT_ID    chat/channel id the bot can post to (e.g. -100xxxxxxxxxx)
+#                       (TELEGRAM_CHAT_TOKEN is accepted as well)
 #   TELEGRAM_TOPIC_ID   optional, message_thread_id for a forum topic
 
 on:
@@ -111,6 +112,6 @@ jobs:
         if: github.event_name == 'push' || github.event.inputs.telegram == 'true'
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID || secrets.TELEGRAM_CHAT_TOKEN }}
           TELEGRAM_TOPIC_ID: ${{ secrets.TELEGRAM_TOPIC_ID }}
         run: .github/scripts/telegram.sh "$ZIP"
