@@ -18,6 +18,10 @@ on:
         description: 'BakaSU ref to build with (empty = submodule commit, "main" = latest)'
         required: false
         default: ''
+      neutron_tag:
+        description: 'Neutron clang release tag (empty = latest, e.g. 06092026)'
+        required: false
+        default: ''
       telegram:
         description: 'Send the zip to Telegram'
         type: boolean
@@ -28,10 +32,9 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # TARGET_KERNEL_CLANG_VERSION from device/xiaomi/bouquet/BoardConfig.mk,
-  # at the prebuilts/clang/host/linux-x86 revision the ROM tree uses
-  CLANG_VERSION: r596125
-  CLANG_URL: https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/29182889399818f97baa65ea238c80e8117981eb/clang-r596125.tar.gz
+  # CI builds with Neutron clang (latest release unless neutron_tag is set).
+  # The ROM keeps building with TARGET_KERNEL_CLANG_VERSION (AOSP r596125).
+  NEUTRON_REPO: Neutron-Toolchains/clang-build-catalogue
   ANYKERNEL_REPO: https://github.com/osm0sis/AnyKernel3
   ANYKERNEL_BRANCH: master
 
@@ -67,21 +70,42 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq bc bison flex cpio lz4 libssl-dev libelf-dev zip python3
+          sudo apt-get install -y -qq bc bison flex cpio lz4 zstd libssl-dev libelf-dev zip python3
+
+      - name: Resolve Neutron clang release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag='${{ github.event.inputs.neutron_tag }}'
+          if [ -z "$tag" ]; then
+            tag=$(gh release view -R "$NEUTRON_REPO" --json tagName -q .tagName)
+          fi
+          [ -n "$tag" ] || { echo "error: no Neutron release found" >&2; exit 1; }
+          echo "NEUTRON_TAG=$tag" >> "$GITHUB_ENV"
+          echo "Neutron clang $tag"
 
       - name: Cache clang
         id: clang-cache
         uses: actions/cache@v4
         with:
           path: ~/clang
-          key: clang-${{ env.CLANG_VERSION }}-29182889
+          key: neutron-clang-${{ env.NEUTRON_TAG }}
 
-      - name: Download clang ${{ env.CLANG_VERSION }}
+      - name: Download Neutron clang ${{ env.NEUTRON_TAG }}
         if: steps.clang-cache.outputs.cache-hit != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          mkdir -p ~/clang
-          curl -fsSL --retry 5 "$CLANG_URL" | tar -xz -C ~/clang
+          mkdir -p ~/clang /tmp/neutron
+          gh release download "$NEUTRON_TAG" -R "$NEUTRON_REPO" \
+            -p 'neutron-clang-*.tar.zst' -D /tmp/neutron
+          tar --zstd -xf /tmp/neutron/neutron-clang-*.tar.zst -C ~/clang
+          rm -rf /tmp/neutron
+
+      - name: Check clang
+        run: |
           ~/clang/bin/clang --version
+          echo "CLANG_NAME=$(~/clang/bin/clang --version | head -n 1 | sed -E 's/ \(http[^)]*\)//g')" >> "$GITHUB_ENV"
 
       - name: Build
         run: |

@@ -12,7 +12,8 @@
 #                                  TARGET_BOARD_PLATFORM=sdm660
 #
 # Env:
-#   CLANG_DIR  path to clang-r596125 (required)
+#   CLANG_DIR  clang toolchain directory (required): the ROM uses
+#              clang-r596125, CI uses the latest Neutron clang
 #   OUT        kernel object dir (default: <kernel>/out)
 #   DIST       where Image.gz-dtb and dtb end up (default: $OUT/dist)
 #   JOBS       parallel jobs (default: nproc)
@@ -20,7 +21,7 @@
 set -euo pipefail
 
 KERNEL_DIR=$(cd "$(dirname "$0")/../.." && pwd)
-: "${CLANG_DIR:?set CLANG_DIR to the clang-r596125 directory}"
+: "${CLANG_DIR:?set CLANG_DIR to the clang toolchain directory}"
 OUT=$(realpath -m "${OUT:-$KERNEL_DIR/out}")
 DIST=$(realpath -m "${DIST:-$OUT/dist}")
 JOBS=${JOBS:-$(nproc)}
@@ -30,7 +31,7 @@ DEVICES=(tulip whyred)
 CONFIG_DIR=$KERNEL_DIR/arch/arm64/configs/vendor/xiaomi
 
 export PATH="$CLANG_DIR/bin:$PATH"
-export LD_LIBRARY_PATH="$CLANG_DIR/lib64:${LD_LIBRARY_PATH:-}"
+export LD_LIBRARY_PATH="$CLANG_DIR/lib64:$CLANG_DIR/lib:${LD_LIBRARY_PATH:-}"
 
 MAKE=(make -C "$KERNEL_DIR" O="$OUT" -j"$JOBS"
 	ARCH=arm64

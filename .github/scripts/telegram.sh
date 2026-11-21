@@ -34,6 +34,7 @@ else
 	CAPTION="<b>SouthWest-NG</b> for tulip / whyred
 <b>Kernel:</b> <code>${VERSION:-unknown}</code>
 <b>BakaSU:</b> <code>${BAKASU_REV:-unknown}</code> + SUSFS
+<b>Clang:</b> <code>${CLANG_NAME:-unknown}</code>
 <b>Commit:</b> <code>${GITHUB_SHA:0:12}</code> (${GITHUB_REF_NAME:-local})
 <b>SHA256:</b> <code>${SHA256}</code>"
 	if [ -n "${GITHUB_SERVER_URL:-}" ] && [ -n "${GITHUB_RUN_ID:-}" ]; then
